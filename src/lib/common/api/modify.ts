@@ -29,6 +29,18 @@ export async function renameNode(n: Node, nameNew: string): Promise<Node> {
 	return node;
 }
 
+// Requires a headscale build with "nodes set-ip" (POST /api/v1/node/{id}/ip).
+// An empty string keeps the node's current address for that family.
+export async function setNodeIPs(n: Node, ipv4: string, ipv6: string): Promise<Node> {
+	const path = `${API_URL_NODE}/${n.id}/ip`;
+	const currentStatus = n.online;
+	const { node } = await apiPost<ApiNode>(path, { ipv4, ipv6 });
+	debug(`Set IPs for Node "${n.givenName}" to ${node.ipAddresses.join(', ')}`);
+	node.online = currentStatus; // Preserve online status, #2637
+	App.updateValue(App.nodes, node);
+	return node;
+}
+
 export async function deletePreAuthKey(pak: PreAuthKey) {
 	const params = new URLSearchParams({ id: String(pak.id) });
 	const path = `${API_URL_PREAUTHKEY}?${params}`;
