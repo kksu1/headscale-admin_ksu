@@ -73,6 +73,11 @@
 			>
 				Reusable
 			</span>
+			{#if preAuthKey.ipv4 || preAuthKey.ipv6}
+				<span class="badge badge-glass variant-ghost-primary" title="Fixed IP for the node that registers with this key">
+					{[preAuthKey.ipv4, preAuthKey.ipv6].filter((ip) => !!ip).join(', ')}
+				</span>
+			{/if}
 		</div>
 	</div>
 	<div class="flex">

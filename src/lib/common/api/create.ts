@@ -42,12 +42,17 @@ export async function createPreAuthKey(
 	ephemeral: boolean,
 	reusable: boolean,
 	expiration: Date | string,
+	ipv4: string = '',
+	ipv6: string = '',
 ) {
+	// ipv4/ipv6 need a headscale build with fixed IP pre-auth keys (setip)
 	const data = {
 		user: user.id,
 		reusable,
 		ephemeral,
 		expiration: new Date(expiration).toISOString(),
+		...(ipv4 !== '' && { ipv4 }),
+		...(ipv6 !== '' && { ipv6 }),
 	};
 	const { preAuthKey } = await apiPost<ApiPreAuthKey>(API_URL_PREAUTHKEY, data);
 	debug('Created PreAuthKey for user "' + user.name + '"');
