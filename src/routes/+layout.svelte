@@ -94,7 +94,7 @@
 				<LightSwitch />
 				<a
 					class="btn btn-sm variant-ghost-surface"
-					href="https://github.com/GoodiesHQ/headscale-admin"
+					href="https://github.com/kksu1/headscale-admin_ksu"
 					target="_blank"
 					rel="noreferrer"
 				>
