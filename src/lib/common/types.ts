@@ -87,6 +87,9 @@ export class PreAuthKey {
 		public expiration: string,
 		public createdAt: string,
 		public aclTags: string[],
+		// fixed addresses for the node that registers with the key (setip headscale)
+		public ipv4?: string,
+		public ipv6?: string,
 	) { }
 	isExpired: () => boolean = () => {
 		return new Date() > new Date(this.expiration);

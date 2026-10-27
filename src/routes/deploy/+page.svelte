@@ -2,6 +2,7 @@
 	import {
 		copyToClipboard,
 		isValidCIDR,
+		isValidIP,
 		isValidTag,
 		toastError,
 		toastSuccess,
@@ -34,8 +35,41 @@
 			ephemeral: false,
 			reusable: false,
 			expiration: defaultExpires(),
+			ipv4: '',
+			ipv6: '',
 		};
 	}
+
+	// Returns why addr can't be the key's fixed address of the given family, or
+	// '' if it can. headscale checks the prefix and reservations on its side.
+	function fixedIPError(addr: string, family: 4 | 6): string {
+		addr = addr.trim();
+		if (addr === '') {
+			return '';
+		}
+		if (!isValidIP(addr) || addr.includes(':') !== (family === 6)) {
+			return `Not an IPv${family} address`;
+		}
+		const owner = App.nodes.value.find((n) => n.ipAddresses.includes(addr));
+		if (owner !== undefined) {
+			return `In use by "${owner.givenName}"`;
+		}
+		return '';
+	}
+
+	const fixedIPv4Error = $derived(fixedIPError(preAuthKeySettings.ipv4, 4));
+	const fixedIPv6Error = $derived(fixedIPError(preAuthKeySettings.ipv6, 6));
+	const hasFixedIP = $derived(
+		preAuthKeySettings.ipv4.trim() !== '' || preAuthKeySettings.ipv6.trim() !== '',
+	);
+	let preAuthKeyFixedIPs = $state('');
+
+	// one fixed address cannot go to several nodes
+	$effect(() => {
+		if (hasFixedIP) {
+			preAuthKeySettings.reusable = false;
+		}
+	});
 
 	function selectedPreAuthUser(): User | undefined {
 		return App.users.value.find((user) => user.id === deployment.preAuthKeyUser);
@@ -54,8 +88,14 @@
 				preAuthKeySettings.ephemeral,
 				preAuthKeySettings.reusable,
 				preAuthKeySettings.expiration,
+				preAuthKeySettings.ipv4.trim(),
+				preAuthKeySettings.ipv6.trim(),
 			);
 			deployment.preAuthKey = preAuthKey.key;
+			preAuthKeyFixedIPs = [preAuthKey.ipv4, preAuthKey.ipv6].filter((ip) => !!ip).join(', ');
+			if (hasFixedIP && preAuthKeyFixedIPs === '') {
+				toastError('This headscale ignored the fixed IP; the node will get an automatic address', ToastStore);
+			}
 			toastSuccess('PreAuth Key created. Copy it now, it can only be viewed once.', ToastStore);
 		} catch (e) {
 			toastError('Failed to create PreAuth Key: ' + e, ToastStore);
@@ -211,15 +251,45 @@
 									type="checkbox"
 									class="checkbox"
 									bind:checked={preAuthKeySettings.reusable}
+									disabled={hasFixedIP}
 								/>
 								<span>Reusable</span>
 							</label>
 						</div>
+						<label class="label flex flex-col gap-2">
+							<span>Fixed IPv4 (optional)</span>
+							<input
+								type="text"
+								class="input rounded-md w-full"
+								placeholder="e.g. 100.64.0.56"
+								bind:value={preAuthKeySettings.ipv4}
+							/>
+							{#if fixedIPv4Error}
+								<span class="text-xs text-error-500">{fixedIPv4Error}</span>
+							{/if}
+						</label>
+						<label class="label flex flex-col gap-2">
+							<span>Fixed IPv6 (optional)</span>
+							<input
+								type="text"
+								class="input rounded-md w-full"
+								placeholder="e.g. fd7a:115c:a1e0::38"
+								bind:value={preAuthKeySettings.ipv6}
+							/>
+							{#if fixedIPv6Error}
+								<span class="text-xs text-error-500">{fixedIPv6Error}</span>
+							{/if}
+						</label>
 					</div>
+					{#if hasFixedIP}
+						<p class="text-xs text-slate-600 dark:text-slate-300">
+							The node that registers with this key gets the fixed address. headscale reserves it until the key is used or expires. Fixed IP keys can't be reusable.
+						</p>
+					{/if}
 					<div class="flex flex-row flex-wrap gap-2">
 						<button
 							class="btn btn-sm rounded-md variant-filled-success"
-							disabled={preAuthKeyLoading}
+							disabled={preAuthKeyLoading || fixedIPv4Error !== '' || fixedIPv6Error !== ''}
 							onclick={generatePreAuthKey}
 						>
 							Generate PreAuth Key
@@ -235,6 +305,9 @@
 					</div>
 					{#if deployment.preAuthKey}
 						<p class="text-xs text-slate-600 dark:text-slate-300">This key can only be viewed once. Copy it now.</p>
+						{#if preAuthKeyFixedIPs}
+							<p class="text-xs text-slate-600 dark:text-slate-300">Reserved for the node: {preAuthKeyFixedIPs}</p>
+						{/if}
 					{/if}
 				{/if}
 			</div>
